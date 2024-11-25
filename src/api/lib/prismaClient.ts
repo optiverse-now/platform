@@ -1,14 +1,13 @@
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { PrismaClient } from '@prisma/client'
 
-const app = new Hono()
+const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
-app.use(
-  '*',
-  cors({
-    allowMethods: ['GET', 'POST'],
-    origin: ['http://localhost:3000'],
-  })
-)
+export const prisma = globalForPrisma.prisma || new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    },
+  },
+})
 
-app.get('/', (c) => c.text('Hello Hono!'))
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma

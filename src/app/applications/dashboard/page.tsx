@@ -1,9 +1,13 @@
-import React from 'react'
+'use client'
+import { withAuth } from '@/app/middleware'
 
-const Dashboard = () => { 
+const Dashboard = () => {
   return (
-    <div>dashboard</div>
+    <div>
+      <h1>ダッシュボード</h1>
+      {/* ダッシュボードのコンテンツ */}
+    </div>
   )
 }
 
-export default Dashboard;
+export default withAuth(Dashboard)

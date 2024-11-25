@@ -1,5 +1,7 @@
 {
   "cSpell.words": [
     "datasource"
-  ]
+  ],
+  "WillLuke.nextjs.addTypesOnSave": true,
+  "WillLuke.nextjs.hasPrompted": true
 }
