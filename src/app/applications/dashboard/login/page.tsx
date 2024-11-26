@@ -11,46 +11,68 @@ import {
 } from "@/app/components/ui/card"
 import { Input } from "@/app/components/ui/input"
 import { Label } from "@/app/components/ui/label"
+import { useToast } from "@/app/hooks/use-toast"
 
 const Login = () => {
   const router = useRouter()
+  const { toast } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    setIsLoading(true)    
 
+    console.log("try直前")
     try {
-      const res = await fetch('http://localhost:4000/dashboard/login', {
+      const res = await fetch('http://localhost:4000/api/dashboard/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
       })
+
+      console.log("Status:", res.status)
+      console.log("Status Text:", res.statusText)
       
-      const data = await res.json()
+      const rawResponse = await res.text()
+      console.log("Raw Response:", rawResponse)
+      
+      const data = rawResponse ? JSON.parse(rawResponse) : null
+      console.log("Parsed Data:", data)
 
       if (!res.ok) {
-        throw new Error(data.message || 'ログインに失敗しました')
+        throw new Error(data?.error || 'ログインに失敗しました')
       }
 
-      if (data.success && data.token) {
+      if (data.token) {
+        console.log("トークン保存前:", data.token)
         localStorage.setItem('token', data.token)
+        console.log("トークン保存後:", localStorage.getItem('token'))
+        
+        toast({
+          title: "ログイン成功",
+          description: "ダッシュボードにリダイレクトします",
+        })
         router.push('/applications/dashboard')
       } else {
         throw new Error('認証に失敗しました')
       }
 
+      console.log("data", data)
+      console.log("res", res)
+
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('ログインに失敗しました')
-      }
       console.error('Login error:', err)
+      toast({
+        title: "エラー",
+        description: err instanceof Error ? err.message : 'ログインに失敗しました',
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -60,9 +82,6 @@ const Login = () => {
         <CardHeader>
           <CardTitle className="text-2xl text-center">管理者ログイン</CardTitle>
         </CardHeader>
-        {error && (
-          <div className="px-6 py-2 text-red-500 text-center">{error}</div>
-        )}
         <form onSubmit={handleSubmit}>
           <CardContent>
             <div className="grid w-full items-center gap-4">
@@ -74,6 +93,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -88,12 +108,19 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button type="submit" className="w-full">ログイン</Button>
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? 'ログイン中...' : 'ログイン'}
+            </Button>
           </CardFooter>
         </form>
       </Card>

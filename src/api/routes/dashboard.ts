@@ -1,82 +1,82 @@
 import { Hono } from 'hono'
-// import bcrypt from 'bcrypt'
-import { generateToken } from '../utils/jwt'
-import { authMiddleware } from '../middleware/auth'
+import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { prisma } from '../lib/prismaClient'
+import { generateToken } from '../utils/jwt'
+import { Bindings } from '../types'
+// import * as bcrypt from 'bcrypt
+import { verifyToken } from '../utils/jwt'
 
-type Variables = {
-  userId: number;
-};
 
-const dashboard = new Hono<{ Variables: Variables }>()
+const dashboardRouter = new Hono<{ Bindings: Bindings }>()
 
-dashboard.post('/login', async (c) => {
+const loginSchema = z.object({
+  email: z.string().email("有効なメールアドレスを入力してください"),
+  password: z.string().min(4, "パスワードは6文字以上必要です")
+})
+
+dashboardRouter.post('/login', zValidator('json', loginSchema), async (c) => {
+  const { email, password } = await c.req.valid('json')
+
   try {
-    const { email, password } = await c.req.json()
-
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email }
+    })
+
+    if (!user || !(await password === user.password)) {
+    // if (!user || !(await bcrypt.compare(password, user.password))) {
+      return c.json({ error: 'Invalid credentials' }, 401)
+    }
+
+    const token = generateToken({
+      userId: user.id,
+      email: user.email
+    })
+
+    return c.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name
+      }
+    })
+  } catch (error) {
+    console.error('Login error:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 保護されたユーザー情報取得エンドポイントを追加
+dashboardRouter.get('/protected/user', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization')
+    if (!authHeader) {
+      return c.json({ error: 'Authorization header is missing' }, 401)
+    }
+
+    const token = authHeader.split(' ')[1]
+    // トークンの検証処理
+    const decoded = verifyToken(token)
+    
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
       select: {
         id: true,
         email: true,
-        password: true
+        name: true
       }
     })
 
-
     if (!user) {
-      return c.json({ 
-        success: false,
-        message: 'メールアドレスまたはパスワードが間違っています' 
-      }, 401)
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    // const isValid = await bcrypt.compare(password, user.password)
-    const isValid = password === user.password
-
-    if (!isValid) {
-      return c.json({ 
-        success: false,
-        message: 'メールアドレスまたはパスワードが間違っています' 
-      }, 401)
-    }
-
-    const token = generateToken(user.id)
-    return c.json({ 
-      success: true,
-      token, 
-      userId: user.id 
-    })
-
+    return c.json({ user })
   } catch (error) {
-    console.error('Login error:', error)
-    return c.json({ 
-      success: false,
-      message: 'ログイン処理中にエラーが発生しました' 
-    }, 500)
+    console.error('Protected route error:', error)
+    return c.json({ error: 'Internal server error' }, 500)
   }
 })
 
-dashboard.use('/protected/*', authMiddleware)
-
-dashboard.get('/protected/user', async (c) => {
-  const userId = c.get('userId')
-  
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      createAt: true
-    }
-  })
-
-  if (!user) {
-    return c.json({ message: 'ユーザーが見つかりません' }, 404)
-  }
-
-  return c.json(user)
-})
-
-export { dashboard }
+export { dashboardRouter }

@@ -7,11 +7,12 @@ export type NavigationButtonProps = {
   onClick: () => void;
 } 
 
-export type ActionButtonProps = {
-  onClick: () => void;
+export interface ActionButtonProps {
+  onClick?: () => void;
   variant?: 'default' | 'destructive' | 'outline';
   size?: 'default' | 'sm' | 'lg';
   children: React.ReactNode;
   className?: string;
   type?: 'button' | 'submit' | 'reset';
+  disabled?: boolean;
 }

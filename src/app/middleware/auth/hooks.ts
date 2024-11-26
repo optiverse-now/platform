@@ -9,7 +9,7 @@ export const useAuth = () => {
 
   const verifyAuth = async (token: string): Promise<boolean> => {
     try {
-      const res = await fetch('http://localhost:4000/dashboard/protected/user', {
+      const res = await fetch('http://localhost:4000/api/dashboard/protected/user', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

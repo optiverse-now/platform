@@ -7,6 +7,8 @@ export function ActionButton({
   size = 'default',
   children,
   className = "",
+  type = 'button',
+  disabled = false
 }: ActionButtonProps) {
   return (
     <Button
@@ -14,6 +16,8 @@ export function ActionButton({
       variant={variant}
       size={size}
       className={className}
+      type={type}
+      disabled={disabled}
     >
       {children}
     </Button>
