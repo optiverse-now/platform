@@ -2,60 +2,69 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FormInput } from '@/app/components/atoms/forms/FormInput'
-import { FormTextarea } from '@/app/components/atoms/forms/FormTextarea'
-import { ActionButton } from '@/app/components/atoms/buttons/ActionButton'
-import { useToast } from '@/app/hooks/use-toast'
+import { useToast } from "@/app/hooks/use-toast"
+import { Button } from "@/app/components/ui/button"
+import { Input } from "@/app/components/ui/input"
+import { Label } from "@/app/components/ui/label"
+import { Textarea } from "@/app/components/ui/textarea"
 
-type BlogFormData = {
-  title: string;
-  content: string;
-  authorId: number;
-  status: boolean;
+interface BlogPostFormProps {
+  initialData?: {
+    title: string
+    content: string
+    status: boolean
+  }
+  isEditing?: boolean
+  postId?: number
 }
 
-export function BlogPostForm() {
+export function BlogPostForm({ initialData, isEditing = false, postId }: BlogPostFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState<BlogFormData>({
-    title: '',
-    content: '',
-    authorId: 2,
-    status: true
-  })
+  const [title, setTitle] = useState(initialData?.title || '')
+  const [content, setContent] = useState(initialData?.content || '')
+  const [status, setStatus] = useState<boolean>(initialData?.status || true)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      const response = await fetch('http://localhost:4000/api/blogs', {
-        method: 'POST',
+      const token = localStorage.getItem('token')
+      const url = isEditing 
+        ? `http://localhost:4000/api/blogs/${postId}`
+        : 'http://localhost:4000/api/blogs'
+      
+      const res = await fetch(url, {
+        method: isEditing ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          title,
+          content,
+          status
+        })
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to create post')
+      if (!res.ok) {
+        throw new Error(isEditing ? '記事の更新に失敗しました' : '記事の作成に失敗しました')
       }
 
-      await response.json()
-      
       toast({
-        title: "投稿成功",
-        description: "ブログ記事が正常に投稿されました。",
+        title: "成功",
+        description: isEditing ? "記事を更新しました" : "記事を作成しました",
       })
-
+      
       router.push('/applications/dashboard/blog/lists')
+      router.refresh()
     } catch (error) {
-      console.error('Error creating post:', error)
+      console.error('Error:', error)
       toast({
         title: "エラー",
-        description: "投稿に失敗しました。もう一度お試しください。",
+        description: error instanceof Error ? error.message : '予期せぬエラーが発生しました',
         variant: "destructive",
       })
     } finally {
@@ -64,48 +73,46 @@ export function BlogPostForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-8">
       <div className="space-y-4">
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-            タイトル
-          </label>
-          <FormInput
+        <div className="space-y-2">
+          <Label htmlFor="title">タイトル</Label>
+          <Input
             id="title"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             required
+            disabled={isLoading}
           />
         </div>
-
-        <div>
-          <label htmlFor="content" className="block text-sm font-medium text-gray-700">
-            内容
-          </label>
-          <FormTextarea
+        <div className="space-y-2">
+          <Label htmlFor="content">内容</Label>
+          <Textarea
             id="content"
-            value={formData.content}
-            onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
             required
+            disabled={isLoading}
+            rows={15}
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="status">ステータス</Label>
+          <select
+            id="status"
+            value={status.toString()}
+            onChange={(e) => setStatus(e.target.value === 'true')}
+            className="w-full p-2 border rounded"
+            disabled={isLoading}
+          >
+            <option value="true">公開</option>
+            <option value="false">下書き</option>
+          </select>
+        </div>
       </div>
-
-      <div className="flex justify-end gap-4">
-        <ActionButton
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-        >
-          キャンセル
-        </ActionButton>
-        <ActionButton
-          type="submit"
-          disabled={isLoading}
-        >
-          {isLoading ? '投稿中...' : '投稿する'}
-        </ActionButton>
-      </div>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading ? '保存中...' : (isEditing ? '更新する' : '作成する')}
+      </Button>
     </form>
   )
 } 
